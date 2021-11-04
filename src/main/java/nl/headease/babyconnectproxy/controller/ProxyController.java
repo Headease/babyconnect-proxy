@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("v1/proxy")
 public class ProxyController {
 
-  @PostMapping(value = "convert/astraia/patients", consumes = MediaType.APPLICATION_XML_VALUE)
+  @PostMapping(value = "convert/astraia/patient", consumes = MediaType.APPLICATION_XML_VALUE)
   public Patient convertAstraiaMessage(@RequestBody String astraiaMessage) {
 
     return new Patient();
