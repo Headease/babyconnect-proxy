@@ -1,8 +1,7 @@
 package nl.headease.babyconnectproxy.controller;
 
-import ca.uhn.fhir.context.FhirContext;
-import ca.uhn.fhir.parser.IParser;
 import nl.headease.babyconnectproxy.service.AstraiaConversionService;
+import nl.headease.babyconnectproxy.service.FhirService;
 import org.hl7.fhir.dstu3.model.Patient;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -17,22 +16,23 @@ import org.springframework.web.bind.annotation.RestController;
 public class ProxyController {
 
   private final AstraiaConversionService astraiaConversionService;
-  private final FhirContext fhirContext = FhirContext.forDstu3();
-  private final IParser parser = fhirContext.newJsonParser();
+  private final FhirService fhirService;
 
-
-  public ProxyController(AstraiaConversionService astraiaConversionService) {
+  public ProxyController(AstraiaConversionService astraiaConversionService,
+      FhirService fhirService) {
     this.astraiaConversionService = astraiaConversionService;
+    this.fhirService = fhirService;
   }
 
   @PostMapping(value = "convert/astraia/patient", consumes = MediaType.APPLICATION_XML_VALUE,  produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<String> convertAstraiaMessage(@RequestBody String astraiaMessage) {
 
+
+
     final Patient patient = astraiaConversionService.convertToFhirPatient(astraiaMessage);
 
-    return new ResponseEntity<>(
-        parser.encodeResourceToString(patient),
-        HttpStatus.OK
-    );
+    String response = fhirService.ensurePatient(patient);
+
+    return new ResponseEntity<>(response, HttpStatus.OK);
   }
 }
