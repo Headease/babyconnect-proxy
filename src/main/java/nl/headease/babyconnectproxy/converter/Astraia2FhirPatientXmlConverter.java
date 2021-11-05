@@ -1,5 +1,7 @@
 package nl.headease.babyconnectproxy.converter;
 
+import java.util.Arrays;
+import java.util.List;
 import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathExpression;
@@ -9,6 +11,7 @@ import org.hl7.fhir.dstu3.model.HumanName;
 import org.hl7.fhir.dstu3.model.HumanName.NameUse;
 import org.hl7.fhir.dstu3.model.Identifier;
 import org.hl7.fhir.dstu3.model.Identifier.IdentifierUse;
+import org.hl7.fhir.dstu3.model.Meta;
 import org.hl7.fhir.dstu3.model.Patient;
 import org.springframework.stereotype.Component;
 import org.w3c.dom.Document;
@@ -24,6 +27,10 @@ public class Astraia2FhirPatientXmlConverter {
   private final static String XPATH__NAME_FAMILY = "/export/Patient/record/data[@name='name']/@value";
   private final static String XPATH__NAME_GIVEN = "/export/Patient/record/data[@name='other_names']/@value";
 
+  private final static List<String> profiles = Arrays.asList(
+      "http://fhir.nl/fhir/StructureDefinition/nl-core-patient",
+      "http://nictiz.nl/fhir/StructureDefinition/bc-woman");
+
   private final XPath xPath = XPathFactory.newInstance().newXPath();
   private final XPathExpression xPathExpressionBsn;
   private final XPathExpression xPathExpressionNameFamily;
@@ -32,7 +39,7 @@ public class Astraia2FhirPatientXmlConverter {
   public Astraia2FhirPatientXmlConverter() {
     xPathExpressionBsn = getXPathExpression(XPATH__BSN);
     xPathExpressionNameFamily = getXPathExpression(XPATH__NAME_FAMILY);
-    xPathExpressionNameGiven =  getXPathExpression(XPATH__NAME_GIVEN);
+    xPathExpressionNameGiven = getXPathExpression(XPATH__NAME_GIVEN);
   }
 
 
@@ -43,6 +50,10 @@ public class Astraia2FhirPatientXmlConverter {
       final NodeList givenNameNodes = (NodeList) xPathExpressionNameGiven.evaluate(astraiaDocument, XPathConstants.NODESET);
 
       final Patient patient = new Patient();
+
+      final Meta meta = new Meta();
+      profiles.forEach(meta::addProfile);
+      patient.setMeta(meta);
 
       final Identifier bsn = new Identifier();
       bsn.setSystem(FHIR__IDENTIFIER_SYSTEM_BSN);
