@@ -10,10 +10,10 @@ import ca.uhn.fhir.rest.gclient.ICriterion;
 import ca.uhn.fhir.rest.gclient.TokenClientParam;
 import java.util.List;
 import java.util.stream.Collectors;
+import nl.headease.babyconnectproxy.model.NutsIntrospectionResult;
 import org.hl7.fhir.dstu3.model.Bundle;
 import org.hl7.fhir.dstu3.model.Identifier;
 import org.hl7.fhir.dstu3.model.Patient;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -21,11 +21,6 @@ public class FhirService {
 
   private final FhirContext fhirContext = FhirContext.forDstu3();
   private final IParser parser = fhirContext.newJsonParser();
-  private final IGenericClient fhirClient;
-
-  public FhirService(@Value("${fhir.server.url}") String fhirEndpoint) {
-    fhirClient = fhirContext.newRestfulGenericClient(fhirEndpoint);
-  }
 
   /**
    * Stores the {@link Patient} in the configured FHIR store. This endpoint should eventually
@@ -33,11 +28,15 @@ public class FhirService {
    *
    *
    * @param patient
+   * @param nutsIntrospectionResult
    * @return the FHIR store response
    */
-  public String ensurePatient(Patient patient) {
+  public String ensurePatient(Patient patient,
+      NutsIntrospectionResult nutsIntrospectionResult) {
 
-    final List<Patient> patients = searchPatientByBsn(patient);
+    IGenericClient fhirClient = fhirContext.newRestfulGenericClient(nutsIntrospectionResult.getServiceEndpoint());
+
+    final List<Patient> patients = searchPatientByBsn(patient, fhirClient);
 
     if(!patients.isEmpty()) {
       return parser.encodeResourceToString(patients.get(0));
@@ -52,9 +51,10 @@ public class FhirService {
    * Would expect 0..1 results, but never hurts to assume we can have multiple
    *
    * @param patient
+   * @param fhirClient
    * @return
    */
-  private List<Patient> searchPatientByBsn(Patient patient) {
+  private List<Patient> searchPatientByBsn(Patient patient, IGenericClient fhirClient) {
 
     final List<Identifier> bsnIdentifier = patient.getIdentifier().stream()
         .filter(identifier -> FHIR__IDENTIFIER_SYSTEM_BSN.equals(identifier.getSystem()))

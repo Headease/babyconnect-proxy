@@ -1,7 +1,10 @@
 package nl.headease.babyconnectproxy.controller;
 
+import javax.servlet.http.HttpServletRequest;
+import nl.headease.babyconnectproxy.model.NutsIntrospectionResult;
 import nl.headease.babyconnectproxy.service.AstraiaConversionService;
 import nl.headease.babyconnectproxy.service.FhirService;
+import nl.headease.babyconnectproxy.service.NutsProxyService;
 import org.hl7.fhir.dstu3.model.Patient;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -15,23 +18,26 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("v1/proxy")
 public class ProxyController {
 
+  private final NutsProxyService nutsProxyService;
   private final AstraiaConversionService astraiaConversionService;
   private final FhirService fhirService;
 
-  public ProxyController(AstraiaConversionService astraiaConversionService,
+  public ProxyController(NutsProxyService nutsProxyService,
+      AstraiaConversionService astraiaConversionService,
       FhirService fhirService) {
+    this.nutsProxyService = nutsProxyService;
     this.astraiaConversionService = astraiaConversionService;
     this.fhirService = fhirService;
   }
 
   @PostMapping(value = "convert/astraia/patient", consumes = MediaType.APPLICATION_XML_VALUE,  produces = MediaType.APPLICATION_JSON_VALUE)
-  public ResponseEntity<String> convertAstraiaMessage(@RequestBody String astraiaMessage) {
+  public ResponseEntity<String> convertAstraiaMessage(@RequestBody String astraiaMessage, HttpServletRequest  request) {
 
-
+    final NutsIntrospectionResult nutsIntrospectionResult = nutsProxyService.introspectBearerToken(request);
 
     final Patient patient = astraiaConversionService.convertToFhirPatient(astraiaMessage);
 
-    String response = fhirService.ensurePatient(patient);
+    String response = fhirService.ensurePatient(patient, nutsIntrospectionResult);
 
     return new ResponseEntity<>(response, HttpStatus.OK);
   }
