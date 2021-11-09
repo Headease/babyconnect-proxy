@@ -5,7 +5,7 @@ import nl.headease.babyconnectproxy.model.NutsIntrospectionResult;
 import nl.headease.babyconnectproxy.service.AstraiaConversionService;
 import nl.headease.babyconnectproxy.service.FhirService;
 import nl.headease.babyconnectproxy.service.NutsProxyService;
-import org.hl7.fhir.dstu3.model.Patient;
+import org.hl7.fhir.dstu3.model.Bundle;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -35,9 +35,9 @@ public class ProxyController {
 
     final NutsIntrospectionResult nutsIntrospectionResult = nutsProxyService.introspectBearerToken(request);
 
-    final Patient patient = astraiaConversionService.convertToFhirPatient(astraiaMessage);
+    final Bundle bundle =  astraiaConversionService.convertToBundle(astraiaMessage);
 
-    String response = fhirService.ensurePatient(patient, nutsIntrospectionResult);
+    String response = fhirService.sendBundle(bundle, nutsIntrospectionResult);
 
     return new ResponseEntity<>(response, HttpStatus.OK);
   }
