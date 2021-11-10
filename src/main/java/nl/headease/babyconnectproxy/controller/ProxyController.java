@@ -35,7 +35,7 @@ public class ProxyController {
 
     final NutsIntrospectionResult nutsIntrospectionResult = nutsProxyService.introspectBearerToken(request);
 
-    final Bundle bundle =  astraiaConversionService.convertToBundle(astraiaMessage);
+    final Bundle bundle = astraiaConversionService.convertToBundle(astraiaMessage);
 
     String response = fhirService.sendBundle(bundle, nutsIntrospectionResult);
 

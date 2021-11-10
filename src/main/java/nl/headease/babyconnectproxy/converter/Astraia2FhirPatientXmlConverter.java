@@ -42,7 +42,6 @@ public class Astraia2FhirPatientXmlConverter {
     xPathExpressionNameGiven = getXPathExpression(XPATH__NAME_GIVEN);
   }
 
-
   public Patient convert(Document astraiaDocument) {
     try {
       final Node bsnNode = (Node) xPathExpressionBsn.evaluate(astraiaDocument, XPathConstants.NODE);
