@@ -9,6 +9,7 @@ import java.util.stream.Collectors;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
+import nl.headease.babyconnectproxy.converter.Astraia2FhirEpisodeOfCareXmlConverter;
 import nl.headease.babyconnectproxy.converter.Astraia2FhirObservationsXmlConverter;
 import nl.headease.babyconnectproxy.converter.Astraia2FhirPatientXmlConverter;
 import org.hl7.fhir.dstu3.model.Bundle;
@@ -16,7 +17,7 @@ import org.hl7.fhir.dstu3.model.Bundle.BundleEntryComponent;
 import org.hl7.fhir.dstu3.model.Bundle.BundleEntryRequestComponent;
 import org.hl7.fhir.dstu3.model.Bundle.BundleType;
 import org.hl7.fhir.dstu3.model.Bundle.HTTPVerb;
-import org.hl7.fhir.dstu3.model.Extension;
+import org.hl7.fhir.dstu3.model.EpisodeOfCare;
 import org.hl7.fhir.dstu3.model.Identifier;
 import org.hl7.fhir.dstu3.model.Observation;
 import org.hl7.fhir.dstu3.model.Patient;
@@ -33,12 +34,15 @@ public class AstraiaConversionService {
   private final DocumentBuilder builder;
   private final Astraia2FhirPatientXmlConverter astraia2FhirPatientXmlConverter;
   private final Astraia2FhirObservationsXmlConverter astraia2FhirObservationsXmlConverter;
+  private final Astraia2FhirEpisodeOfCareXmlConverter astraia2FhirEpisodeOfCareXmlConverter;
 
   public AstraiaConversionService(
       Astraia2FhirPatientXmlConverter astraia2FhirPatientXmlConverter,
-      Astraia2FhirObservationsXmlConverter astraia2FhirObservationsXmlConverter) {
+      Astraia2FhirObservationsXmlConverter astraia2FhirObservationsXmlConverter,
+      Astraia2FhirEpisodeOfCareXmlConverter astraia2FhirEpisodeOfCareXmlConverter) {
     this.astraia2FhirPatientXmlConverter = astraia2FhirPatientXmlConverter;
     this.astraia2FhirObservationsXmlConverter = astraia2FhirObservationsXmlConverter;
+    this.astraia2FhirEpisodeOfCareXmlConverter = astraia2FhirEpisodeOfCareXmlConverter;
 
     try {
       builder = factory.newDocumentBuilder();
@@ -62,11 +66,13 @@ public class AstraiaConversionService {
         .findAny()
         .orElseThrow(() -> new IllegalStateException("No BSN found on Patient resource, cannot create Reference"));
 
-    final Reference patientReference = new Reference();
-    patientReference.setIdentifier(bsnIdentifier);
+    //Conditional reference - requires everything to be sent as a transactional Bundle - will be replaced with the logical id
+    final Reference patientReference = new Reference(String.format("Patient?identifier=%s|%s", FHIR__IDENTIFIER_SYSTEM_BSN, bsnIdentifier.getValue()));
+
+    final List<BundleEntryComponent> episodesOfCare = getEpisodeOfCareBundleEntryComponents(astraiaDocument, patientReference);
+    episodesOfCare.forEach(bundle::addEntry);
 
     List<BundleEntryComponent> observations = getObservationBundleEntryComponents(astraiaDocument, patientReference);
-
     observations.forEach(bundle::addEntry);
 
     return bundle;
@@ -86,10 +92,30 @@ public class AstraiaConversionService {
     return patientEntry;
   }
 
-  private List<BundleEntryComponent> getObservationBundleEntryComponents(Document astraiaDocument,
-      Reference patientReference) {
+  private List<BundleEntryComponent> getEpisodeOfCareBundleEntryComponents(Document astraiaDocument, Reference patientReference) {
 
-    List<Observation> observations = astraia2FhirObservationsXmlConverter.convert(astraiaDocument, patientReference);
+    final List<EpisodeOfCare> episodesOfCare = astraia2FhirEpisodeOfCareXmlConverter.convert(astraiaDocument, patientReference);
+
+    return episodesOfCare.stream()
+        .map(episodeOfCare -> {
+          final BundleEntryComponent entryComponent = new BundleEntryComponent();
+          final BundleEntryRequestComponent request = new BundleEntryRequestComponent();
+          request.setMethod(HTTPVerb.POST);
+          request.setUrl("EpisodeOfCare");
+          request.setIfNoneExist("identifier=" + getEpisodeOfCareAstraiaIdentifier(episodeOfCare));
+
+          entryComponent.setResource(episodeOfCare);
+          entryComponent.setRequest(request);
+
+          return entryComponent;
+        })
+        .collect(Collectors.toList());
+
+  }
+
+  private List<BundleEntryComponent> getObservationBundleEntryComponents(Document astraiaDocument, Reference patientReference) {
+
+    final List<Observation> observations = astraia2FhirObservationsXmlConverter.convert(astraiaDocument, patientReference);
 
     return observations.stream()
         .map(observation -> {
@@ -118,6 +144,20 @@ public class AstraiaConversionService {
     }
 
     final Identifier identifier = bsnIdentifier.get(0);
+    return String.format("%s|%s", identifier.getSystem(), identifier.getValue());
+  }
+
+  private String getEpisodeOfCareAstraiaIdentifier(EpisodeOfCare episodeOfCare) {
+    final List<Identifier> astraiaEpisodeId = episodeOfCare.getIdentifier().stream()
+        .filter(identifier -> Astraia2FhirEpisodeOfCareXmlConverter.FHIR__IDENTIFIER_SYSTEM_ASTRAIA_EPISODE_ID.equals(identifier.getSystem()))
+        .collect(Collectors.toList());
+
+    if(astraiaEpisodeId.size() != 1) {
+      throw new IllegalArgumentException(
+          String.format("Expected to find 1 Astraia episode identifier; found [%d] instead.", astraiaEpisodeId.size()));
+    }
+
+    final Identifier identifier = astraiaEpisodeId.get(0);
     return String.format("%s|%s", identifier.getSystem(), identifier.getValue());
   }
 

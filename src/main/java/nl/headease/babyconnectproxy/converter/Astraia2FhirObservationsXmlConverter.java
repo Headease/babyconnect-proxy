@@ -3,19 +3,15 @@ package nl.headease.babyconnectproxy.converter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathExpression;
 import javax.xml.xpath.XPathExpressionException;
-import javax.xml.xpath.XPathFactory;
 import org.apache.xerces.dom.DeferredElementImpl;
 import org.hl7.fhir.dstu3.model.CodeType;
 import org.hl7.fhir.dstu3.model.CodeableConcept;
 import org.hl7.fhir.dstu3.model.Coding;
 import org.hl7.fhir.dstu3.model.DateTimeType;
 import org.hl7.fhir.dstu3.model.Extension;
-import org.hl7.fhir.dstu3.model.Identifier;
-import org.hl7.fhir.dstu3.model.Identifier.IdentifierUse;
 import org.hl7.fhir.dstu3.model.Meta;
 import org.hl7.fhir.dstu3.model.Observation;
 import org.hl7.fhir.dstu3.model.Quantity;
@@ -28,7 +24,7 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
 @Component
-public class Astraia2FhirObservationsXmlConverter {
+public class Astraia2FhirObservationsXmlConverter extends BaseConverter {
   private static final Logger LOG = LoggerFactory.getLogger(Astraia2FhirObservationsXmlConverter.class);
 
   final CodeableConcept parityCode = new CodeableConcept(
@@ -65,8 +61,6 @@ public class Astraia2FhirObservationsXmlConverter {
   private final static String XPATH__ALCOHOL_USE = "data[@name='alcohol']/@value";
   private final static String XPATH__TOBACCO_USE = "data[@name='cigarettes']/@value";
 
-  private static final String FHIR__IDENTIFIER_SYSTEM_ASTRAIA_EPISODE_ID = "http://astraia.nl/fhir/episode-id";
-
   private final Meta nlCoreMeta = new Meta();
   private final Meta parityMeta = new Meta();
   private final Meta gravidityMeta = new Meta();
@@ -74,7 +68,6 @@ public class Astraia2FhirObservationsXmlConverter {
   private final Meta alcoholMeta = new Meta();
   private final Meta tobaccoMeta = new Meta();
 
-  private final XPath xPath = XPathFactory.newInstance().newXPath();
   private final XPathExpression xPathExpressionEpisodes;
   private final XPathExpression xPathExpressionParity;
   private final XPathExpression xPathExpressionGravidity;
@@ -113,12 +106,10 @@ public class Astraia2FhirObservationsXmlConverter {
         for (int i = 0; i < episodes.getLength(); i++) {
           Node episode = episodes.item(i);
           final String id = ((DeferredElementImpl) episode).getAttribute("id");
-          LOG.info("Converting episode with id: " + id);
 
-          final Identifier identifier = new Identifier();
-          identifier.setSystem(FHIR__IDENTIFIER_SYSTEM_ASTRAIA_EPISODE_ID);
-          identifier.setUse(IdentifierUse.SECONDARY);
-          identifier.setValue(id);
+          final Reference episodeOfCareReference = new Reference(
+              String.format("EpisodeOfCare?identifier=%s|%s",
+                  Astraia2FhirEpisodeOfCareXmlConverter.FHIR__IDENTIFIER_SYSTEM_ASTRAIA_EPISODE_ID, id));
 
           final Node parity = (Node) xPathExpressionParity.evaluate(episode, XPathConstants.NODE);
           final Node gravidity = (Node) xPathExpressionGravidity.evaluate(episode, XPathConstants.NODE);
@@ -127,14 +118,14 @@ public class Astraia2FhirObservationsXmlConverter {
           final Node alcoholUse = (Node) xPathExpressionAlcohol.evaluate(episode, XPathConstants.NODE);
           final Node tobaccoUse = (Node) xPathExpressionTobacco.evaluate(episode, XPathConstants.NODE);
 
-          addQuantityObservation(observations, identifier, parity, patientReference, parityMeta, parityCode);
-          addQuantityObservation(observations, identifier, gravidity, patientReference, gravidityMeta, gravidityCode);
+          addQuantityObservation(observations, parity, patientReference, episodeOfCareReference, parityMeta, parityCode);
+          addQuantityObservation(observations, gravidity, patientReference, episodeOfCareReference, gravidityMeta, gravidityCode);
 
-          addDateTimeObservation(observations, patientReference, identifier, edd, pregnancyMeta, eddCode, eddMethodCoding);
-          addDateTimeObservation(observations, patientReference, identifier, eddLmp, pregnancyMeta, eddCode, eddLmpMethodCoding); //also uses eddCode
+          addDateTimeObservation(observations, patientReference, episodeOfCareReference, edd, pregnancyMeta, eddCode, eddMethodCoding);
+          addDateTimeObservation(observations, patientReference, episodeOfCareReference, eddLmp, pregnancyMeta, eddCode, eddLmpMethodCoding); //also uses eddCode
 
-          addCodeableConceptObservation(observations, patientReference, identifier, alcoholUse, alcoholMeta, alcoholCoding, "Alcoholgebruik");
-          addCodeableConceptObservation(observations, patientReference, identifier, tobaccoUse, tobaccoMeta, tobaccoCoding, "RookgedragVMISLijst");
+          addCodeableConceptObservation(observations, patientReference, episodeOfCareReference, alcoholUse, alcoholMeta, alcoholCoding, "Alcoholgebruik");
+          addCodeableConceptObservation(observations, patientReference, episodeOfCareReference, tobaccoUse, tobaccoMeta, tobaccoCoding, "RookgedragVMISLijst");
 
         }
       }
@@ -153,17 +144,17 @@ public class Astraia2FhirObservationsXmlConverter {
    *
    * @param observations
    * @param patientReference
-   * @param identifier
+   * @param episodeOfCareReference
    * @param node
    * @param meta
    * @param code
    * @param valueCodingSystem
    */
   private void addCodeableConceptObservation(List<Observation> observations, Reference patientReference,
-      Identifier identifier, Node node, Meta meta, CodeableConcept code, String valueCodingSystem) {
+      Reference episodeOfCareReference, Node node, Meta meta, CodeableConcept code, String valueCodingSystem) {
 
     if(node != null) {
-      final Observation observation = getBaseObservation(identifier, patientReference, meta, code);
+      final Observation observation = getBaseObservation(patientReference, episodeOfCareReference, meta, code);
 
       final CodeType codeableConceptContainer = new CodeType();
       final Extension valueExtension = new Extension("http://nictiz.nl/fhir/StructureDefinition/code-specification");
@@ -186,17 +177,17 @@ public class Astraia2FhirObservationsXmlConverter {
    * The <code>$.ValueDateTime</code> is set based on the Astraia value
    * @param observations
    * @param patientReference
-   * @param identifier
+   * @param episodeOfCareReference
    * @param node
    * @param meta
    * @param code
    * @param methodCode
    */
-  private void addDateTimeObservation(List<Observation> observations, Reference patientReference, Identifier identifier, Node node,
+  private void addDateTimeObservation(List<Observation> observations, Reference patientReference, Reference episodeOfCareReference, Node node,
       Meta meta, CodeableConcept code, CodeableConcept methodCode) {
 
     if(node != null) {
-      final Observation observation = getBaseObservation(identifier, patientReference, meta, code);
+      final Observation observation = getBaseObservation(patientReference, episodeOfCareReference, meta, code);
 
       observation.setMethod(methodCode);
 
@@ -214,17 +205,16 @@ public class Astraia2FhirObservationsXmlConverter {
    * The <code>$.valueQuantity.value</code> is set based on the Astraia value
    *
    * @param observations
-   * @param identifier
    * @param node
    * @param subject
+   * @param episodeOfCareReference
    * @param meta
    * @param code
    */
-  private void addQuantityObservation(List<Observation> observations, Identifier identifier,
-      Node node, Reference subject, Meta meta, CodeableConcept code) {
+  private void addQuantityObservation(List<Observation> observations, Node node, Reference subject, Reference episodeOfCareReference, Meta meta, CodeableConcept code) {
 
     if(node != null) {
-      final Observation observation = getBaseObservation(identifier, subject, meta, code);
+      final Observation observation = getBaseObservation(subject, episodeOfCareReference, meta, code);
 
       final Quantity quantity = new Quantity(
           Long.parseLong(node.getNodeValue())
@@ -237,21 +227,12 @@ public class Astraia2FhirObservationsXmlConverter {
     }
   }
 
-  private Observation getBaseObservation(Identifier identifier, Reference subject, Meta meta, CodeableConcept code) {
+  private Observation getBaseObservation(Reference subject, Reference episodeOfCareReference, Meta meta, CodeableConcept code) {
     final Observation observation = new Observation();
-    observation.addIdentifier(identifier);
     observation.setSubject(subject);
     observation.setMeta(meta);
     observation.setCode(code);
+    observation.setContext(episodeOfCareReference);
     return observation;
-  }
-
-  private XPathExpression getXPathExpression(String xpathExpression) {
-    try {
-      return xPath.compile(xpathExpression);
-    } catch (XPathExpressionException e) {
-      throw new IllegalArgumentException(
-          "Cannot create XPathExpression for expression: " + xpathExpression, e);
-    }
   }
 }
