@@ -8,6 +8,7 @@ import nl.headease.babyconnectproxy.config.FhirStoreConfiguration;
 import nl.headease.babyconnectproxy.service.AstraiaConversionService;
 import nl.headease.babyconnectproxy.service.FhirService;
 import nl.headease.babyconnectproxy.service.NutsProxyService;
+import nl.nuts.client.model.TokenIntrospectionResponse;
 import org.apache.commons.lang3.StringUtils;
 import org.hl7.fhir.dstu3.model.Bundle;
 import org.springframework.http.HttpEntity;
@@ -45,7 +46,8 @@ public class ProxyController {
   public ResponseEntity<String> proxyFhirRequest(@RequestBody Optional<String> body, HttpMethod method, HttpServletRequest request)
       throws URISyntaxException {
 
-//    final TokenIntrospectionResponse nutsIntrospectionResult = nutsProxyService.introspectBearerToken(request);
+    final TokenIntrospectionResponse nutsIntrospectionResult = nutsProxyService.introspectBearerToken(request);
+    if(!nutsIntrospectionResult.isActive()) throw new IllegalStateException("Token inactive");
 
     //PROXY REQUEST
     final String path = StringUtils.substringAfterLast(request.getRequestURI(), "proxy");
