@@ -88,6 +88,8 @@
 							<language>java</language>
 <!--							<generateApis>false</generateApis>-->
 							<library>resttemplate</library>
+							<generateModelTests>false</generateModelTests>
+							<generateApiTests>false</generateApiTests>
 							<configOptions>
 								<packageName>${nuts.client.groupId}</packageName>
 								<modelPackage>${nuts.client.groupId}.model</modelPackage>
