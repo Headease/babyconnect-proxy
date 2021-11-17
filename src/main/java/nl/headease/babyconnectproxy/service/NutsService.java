@@ -12,6 +12,7 @@ import nl.nuts.client.vcr.model.CredentialSubject;
 import nl.nuts.client.vcr.model.IssueVCRequest;
 import nl.nuts.client.vcr.model.LegalBase;
 import nl.nuts.client.vcr.model.LegalBase.ConsentTypeEnum;
+import nl.nuts.client.vcr.model.LegalBaseEvidence;
 import nl.nuts.client.vcr.model.Resource;
 import nl.nuts.client.vcr.model.VerifiableCredential;
 import org.apache.commons.lang3.StringUtils;
@@ -23,8 +24,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 /**
- * Service that proxies the Bearer token to the NUTS node and extracts token introspection results
- *
+ * Service handles communication with the NUTS node
  */
 @Service
 public class NutsService {
@@ -69,7 +69,7 @@ public class NutsService {
 
     vcRequest.setCredentialSubject(getCredentialSubject(createRequest));
     vcRequest.setIssuer(careOrganisationDid);
-    vcRequest.setType("NutsOrganizationCredential");
+    vcRequest.setType("NutsAuthorizationCredential");
 
     final VerifiableCredential result = credentialApi.create(vcRequest);
 
@@ -85,7 +85,10 @@ public class NutsService {
 
     final LegalBase legalBase = new LegalBase();
     legalBase.setConsentType(ConsentTypeEnum.EXPLICIT);
-    legalBase.setEvidence("evidence");
+    final LegalBaseEvidence evidence = new LegalBaseEvidence();
+    evidence.setPath("path");
+    evidence.setType("type");
+    legalBase.setEvidence(evidence);
 
     credentialSubject.setLegalBase(legalBase);
 
@@ -113,7 +116,7 @@ public class NutsService {
           final Resource resource = new Resource();
           resource.setOperations(resourceOperations);
           resource.setPath(episodeOfCare.getIdElement().toUnqualifiedVersionless().getValue());
-          resource.setUserContext(false);
+          resource.setUserContext(true);
           return resource;
         })
         .collect(Collectors.toList());
