@@ -7,8 +7,8 @@ import javax.servlet.http.HttpServletRequest;
 import nl.headease.babyconnectproxy.config.FhirStoreConfiguration;
 import nl.headease.babyconnectproxy.service.AstraiaConversionService;
 import nl.headease.babyconnectproxy.service.FhirService;
-import nl.headease.babyconnectproxy.service.NutsProxyService;
-import nl.nuts.client.model.TokenIntrospectionResponse;
+import nl.headease.babyconnectproxy.service.NutsService;
+import nl.nuts.client.auth.model.TokenIntrospectionResponse;
 import org.apache.commons.lang3.StringUtils;
 import org.hl7.fhir.dstu3.model.Bundle;
 import org.springframework.http.HttpEntity;
@@ -26,17 +26,17 @@ import org.springframework.web.client.RestTemplate;
 @RequestMapping("v1/proxy")
 public class ProxyController {
 
-  private final NutsProxyService nutsProxyService;
+  private final NutsService nutsService;
   private final AstraiaConversionService astraiaConversionService;
   private final FhirService fhirService;
   private final FhirStoreConfiguration fhirStoreConfiguration;
   private final RestTemplate restTemplate = new RestTemplate();
 
-  public ProxyController(NutsProxyService nutsProxyService,
+  public ProxyController(NutsService nutsService,
       AstraiaConversionService astraiaConversionService,
       FhirService fhirService,
       FhirStoreConfiguration fhirStoreConfiguration) {
-    this.nutsProxyService = nutsProxyService;
+    this.nutsService = nutsService;
     this.astraiaConversionService = astraiaConversionService;
     this.fhirService = fhirService;
     this.fhirStoreConfiguration = fhirStoreConfiguration;
@@ -46,8 +46,12 @@ public class ProxyController {
   public ResponseEntity<String> proxyFhirRequest(@RequestBody Optional<String> body, HttpMethod method, HttpServletRequest request)
       throws URISyntaxException {
 
-    final TokenIntrospectionResponse nutsIntrospectionResult = nutsProxyService.introspectBearerToken(request);
+    //AUTHENTICATION
+    final TokenIntrospectionResponse nutsIntrospectionResult = nutsService.introspectBearerToken(request);
     if(!nutsIntrospectionResult.isActive()) throw new IllegalStateException("Token inactive");
+
+    //AUTHORISATION
+
 
     //PROXY REQUEST
     final String path = StringUtils.substringAfterLast(request.getRequestURI(), "proxy");

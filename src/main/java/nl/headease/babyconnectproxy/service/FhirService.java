@@ -1,27 +1,32 @@
 package nl.headease.babyconnectproxy.service;
 
-import ca.uhn.fhir.context.FhirContext;
+import static nl.headease.babyconnectproxy.converter.Astraia2FhirPatientXmlConverter.FHIR__IDENTIFIER_SYSTEM_BSN;
+
 import ca.uhn.fhir.parser.IParser;
 import ca.uhn.fhir.rest.client.api.IGenericClient;
-import nl.headease.babyconnectproxy.config.FhirStoreConfiguration;
-import nl.headease.babyconnectproxy.model.NutsIntrospectionResult;
+import ca.uhn.fhir.rest.gclient.ICriterion;
+import ca.uhn.fhir.rest.gclient.ReferenceClientParam;
+import ca.uhn.fhir.rest.gclient.TokenClientParam;
+import java.util.List;
+import java.util.stream.Collectors;
 import org.hl7.fhir.dstu3.model.Bundle;
+import org.hl7.fhir.dstu3.model.EpisodeOfCare;
+import org.hl7.fhir.dstu3.model.Patient;
 import org.springframework.stereotype.Service;
 
 @Service
 public class FhirService {
 
-  private final FhirContext fhirContext = FhirContext.forDstu3();
-  private final IParser parser = fhirContext.newJsonParser();
   private final IGenericClient fhirClient;
+  private final IParser parser;
 
-  public FhirService(FhirStoreConfiguration configuration) {
-    fhirClient = fhirContext.newRestfulGenericClient(configuration.getEndpoint());
+  public FhirService(IGenericClient fhirClient, IParser parser) {
+    this.fhirClient = fhirClient;
+    this.parser = parser;
   }
 
-
   /**
-   * Stores the {@link Bundle} to the FHIR store found in the {@link NutsIntrospectionResult}.
+   * Stores the {@link Bundle} in the FHIR store.
    *
    * @param bundle
    * @return the FHIR store response
@@ -31,6 +36,41 @@ public class FhirService {
     final Bundle result = fhirClient.transaction().withBundle(bundle).execute();
 
     return parser.encodeResourceToString(result);
+  }
+
+  public Patient getPatientByBsn(String bsn) {
+
+    final ICriterion<TokenClientParam> criterion = Patient.IDENTIFIER
+        .exactly()
+        .systemAndIdentifier(FHIR__IDENTIFIER_SYSTEM_BSN, bsn);
+
+    final Bundle patientBundle = fhirClient.search()
+        .forResource(Patient.class)
+        .where(criterion)
+        .returnBundle(Bundle.class)
+        .execute();
+
+    if(patientBundle.getEntry().isEmpty()) {
+      //TODO: Don't throw such specific exceptions, only for the POC
+      throw new IllegalArgumentException("Cannot find BSN");
+    }
+
+    return (Patient) patientBundle.getEntry().get(0).getResource();
+  }
+
+  public List<EpisodeOfCare> getEpisodesOfCare(Patient patient) {
+
+    final ICriterion<ReferenceClientParam> criterion = EpisodeOfCare.PATIENT.hasId(patient.getIdElement().toUnqualifiedVersionless().getValue());
+
+    final Bundle episodesOfCareBundle = fhirClient.search()
+        .forResource(EpisodeOfCare.class)
+        .where(criterion)
+        .returnBundle(Bundle.class)
+        .execute();
+
+    return episodesOfCareBundle.getEntry().stream()
+        .map(bundleEntryComponent -> (EpisodeOfCare) bundleEntryComponent.getResource())
+        .collect(Collectors.toList());
   }
 
 }
