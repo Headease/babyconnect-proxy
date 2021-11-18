@@ -16,7 +16,12 @@ public class FhirClientBeans {
 
   @Bean
   public IGenericClient fhirClient(FhirContext fhirContext, FhirStoreConfiguration configuration) {
-    return fhirContext.newRestfulGenericClient(configuration.getEndpoint());
+    final IGenericClient iGenericClient = fhirContext.newRestfulGenericClient(
+        configuration.getEndpoint());
+
+    //TODO: Probably a lot nicer to use for validating the bolt access policy
+//    iGenericClient.registerInterceptor();
+    return iGenericClient;
   }
 
   @Bean

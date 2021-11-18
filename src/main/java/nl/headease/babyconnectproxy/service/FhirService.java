@@ -12,6 +12,8 @@ import java.util.stream.Collectors;
 import org.hl7.fhir.dstu3.model.Bundle;
 import org.hl7.fhir.dstu3.model.EpisodeOfCare;
 import org.hl7.fhir.dstu3.model.Patient;
+import org.hl7.fhir.instance.model.api.IBaseBundle;
+import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -35,7 +37,7 @@ public class FhirService {
 
     final Bundle result = fhirClient.transaction().withBundle(bundle).execute();
 
-    return parser.encodeResourceToString(result);
+    return encodeResourceToString(result);
   }
 
   public Patient getPatientByBsn(String bsn) {
@@ -72,5 +74,37 @@ public class FhirService {
         .map(bundleEntryComponent -> (EpisodeOfCare) bundleEntryComponent.getResource())
         .collect(Collectors.toList());
   }
+  public String encodeResourceToString(IBaseResource resource) {
+    return parser.encodeResourceToString(resource);
+  }
 
+  public Patient getPatient(String id) {
+
+    final ICriterion<TokenClientParam> criterion = Patient.RES_ID.exactly().identifier(id);
+
+    final Bundle patientBundle = fhirClient.search()
+        .forResource(Patient.class)
+        .where(criterion)
+        .returnBundle(Bundle.class)
+        .execute();
+
+    if(patientBundle.getEntry().isEmpty()) {
+      //TODO: Don't throw such specific exceptions, only for the POC
+      throw new IllegalArgumentException("Cannot find Patient by id: " + id);
+    }
+
+    return (Patient) patientBundle.getEntry().get(0).getResource();
+  }
+
+  public IBaseResource parseResource(String resourceString) {
+    return parser.parseResource(resourceString);
+  }
+
+
+  public IBaseBundle proxyTest(String url) {
+
+    return fhirClient.search()
+        .byUrl(url)
+        .execute();
+  }
 }
