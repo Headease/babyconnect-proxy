@@ -107,9 +107,7 @@ public class Astraia2FhirObservationsXmlConverter extends BaseConverter {
           Node episode = episodes.item(i);
           final String id = ((DeferredElementImpl) episode).getAttribute("id");
 
-          final Reference episodeOfCareReference = new Reference(
-              String.format("EpisodeOfCare?identifier=%s|%s",
-                  Astraia2FhirEpisodeOfCareXmlConverter.FHIR__IDENTIFIER_SYSTEM_ASTRAIA_EPISODE_ID, id));
+          final Reference episodeOfCareReference = new Reference("EpisodeOfCare/astraia-" + id);
 
           final Node parity = (Node) xPathExpressionParity.evaluate(episode, XPathConstants.NODE);
           final Node gravidity = (Node) xPathExpressionGravidity.evaluate(episode, XPathConstants.NODE);

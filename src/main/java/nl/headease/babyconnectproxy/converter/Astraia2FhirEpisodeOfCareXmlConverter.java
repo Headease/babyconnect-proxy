@@ -42,9 +42,10 @@ public class Astraia2FhirEpisodeOfCareXmlConverter extends BaseConverter {
       if(episodes != null) {
         for (int i = 0; i < episodes.getLength(); i++) {
           Node episode = episodes.item(i);
-          final String id = ((DeferredElementImpl) episode).getAttribute("id");
+          final String id = "astraia-" + ((DeferredElementImpl) episode).getAttribute("id");
 
           EpisodeOfCare episodeOfCare = new EpisodeOfCare();
+          episodeOfCare.setId(id);
           episodeOfCare.setStatus(EpisodeOfCareStatus.ACTIVE);
           episodeOfCare.setPatient(patientReference);
 

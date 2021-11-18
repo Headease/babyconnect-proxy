@@ -7,6 +7,7 @@ import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathExpression;
 import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
+import org.apache.xerces.dom.DeferredElementImpl;
 import org.hl7.fhir.dstu3.model.HumanName;
 import org.hl7.fhir.dstu3.model.HumanName.NameUse;
 import org.hl7.fhir.dstu3.model.Identifier;
@@ -23,20 +24,24 @@ public class Astraia2FhirPatientXmlConverter {
 
   public static final String FHIR__IDENTIFIER_SYSTEM_BSN = "http://fhir.nl/fhir/NamingSystem/bsn";
 
-  private final static String XPATH__BSN = "/export/Patient/record/data[@name='nhs_number']/@value";
-  private final static String XPATH__NAME_FAMILY = "/export/Patient/record/data[@name='name']/@value";
-  private final static String XPATH__NAME_GIVEN = "/export/Patient/record/data[@name='other_names']/@value";
+  private final static String XPATH__PATIENT = "/export/Patient/record";
+
+  private final static String XPATH__BSN = "data[@name='nhs_number']/@value";
+  private final static String XPATH__NAME_FAMILY = "data[@name='name']/@value";
+  private final static String XPATH__NAME_GIVEN = "data[@name='other_names']/@value";
 
   private final static List<String> profiles = Arrays.asList(
       "http://fhir.nl/fhir/StructureDefinition/nl-core-patient",
       "http://nictiz.nl/fhir/StructureDefinition/bc-woman");
 
   private final XPath xPath = XPathFactory.newInstance().newXPath();
+  private final XPathExpression xPathExpressionPatient;
   private final XPathExpression xPathExpressionBsn;
   private final XPathExpression xPathExpressionNameFamily;
   private final XPathExpression xPathExpressionNameGiven;
 
   public Astraia2FhirPatientXmlConverter() {
+    xPathExpressionPatient = getXPathExpression(XPATH__PATIENT);
     xPathExpressionBsn = getXPathExpression(XPATH__BSN);
     xPathExpressionNameFamily = getXPathExpression(XPATH__NAME_FAMILY);
     xPathExpressionNameGiven = getXPathExpression(XPATH__NAME_GIVEN);
@@ -44,11 +49,20 @@ public class Astraia2FhirPatientXmlConverter {
 
   public Patient convert(Document astraiaDocument) {
     try {
-      final Node bsnNode = (Node) xPathExpressionBsn.evaluate(astraiaDocument, XPathConstants.NODE);
-      final Node familyNameNode = (Node) xPathExpressionNameFamily.evaluate(astraiaDocument, XPathConstants.NODE);
-      final NodeList givenNameNodes = (NodeList) xPathExpressionNameGiven.evaluate(astraiaDocument, XPathConstants.NODESET);
+      final Node patientNode = (Node) xPathExpressionPatient.evaluate(astraiaDocument, XPathConstants.NODE);
+
+      if(patientNode == null) {
+        throw new IllegalArgumentException("No  patient record found");
+      }
+
+      final String id = "astraia-" + ((DeferredElementImpl) patientNode).getAttribute("id");
+
+      final Node bsnNode = (Node) xPathExpressionBsn.evaluate(patientNode, XPathConstants.NODE);
+      final Node familyNameNode = (Node) xPathExpressionNameFamily.evaluate(patientNode, XPathConstants.NODE);
+      final NodeList givenNameNodes = (NodeList) xPathExpressionNameGiven.evaluate(patientNode, XPathConstants.NODESET);
 
       final Patient patient = new Patient();
+      patient.setId(id);
 
       final Meta meta = new Meta();
       profiles.forEach(meta::addProfile);
@@ -73,10 +87,10 @@ public class Astraia2FhirPatientXmlConverter {
       patient.addName(name);
 
       return patient;
-
     } catch (XPathExpressionException e) {
       throw new IllegalArgumentException("Cannot evaluate Astraia document from XPath", e);
     }
+
   }
 
   private XPathExpression getXPathExpression(String xpathExpression) {

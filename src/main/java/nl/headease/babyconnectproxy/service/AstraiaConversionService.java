@@ -61,13 +61,9 @@ public class AstraiaConversionService {
     bundle.addEntry(patientBundleEntryComponent);
 
     Patient patient = (Patient) patientBundleEntryComponent.getResource();
-    final Identifier bsnIdentifier = patient.getIdentifier().stream()
-        .filter(identifier -> FHIR__IDENTIFIER_SYSTEM_BSN.equals(identifier.getSystem()))
-        .findAny()
-        .orElseThrow(() -> new IllegalStateException("No BSN found on Patient resource, cannot create Reference"));
 
     //Conditional reference - requires everything to be sent as a transactional Bundle - will be replaced with the logical id
-    final Reference patientReference = new Reference(String.format("Patient?identifier=%s|%s", FHIR__IDENTIFIER_SYSTEM_BSN, bsnIdentifier.getValue()));
+    final Reference patientReference = new Reference("Patient/" + patient.getId());
 
     final List<BundleEntryComponent> episodesOfCare = getEpisodeOfCareBundleEntryComponents(astraiaDocument, patientReference);
     episodesOfCare.forEach(bundle::addEntry);
@@ -83,9 +79,8 @@ public class AstraiaConversionService {
     final Patient patient = astraia2FhirPatientXmlConverter.convert(astraiaDocument);
     final BundleEntryComponent patientEntry = new BundleEntryComponent();
     final BundleEntryRequestComponent request = new BundleEntryRequestComponent();
-    request.setMethod(HTTPVerb.POST);
-    request.setUrl("Patient");
-    request.setIfNoneExist("identifier=" + getPatientBsnIdentifier(patient));
+    request.setMethod(HTTPVerb.PUT);
+    request.setUrl("Patient/" + patient.getId());
 
     patientEntry.setResource(patient);
     patientEntry.setRequest(request);
@@ -100,9 +95,8 @@ public class AstraiaConversionService {
         .map(episodeOfCare -> {
           final BundleEntryComponent entryComponent = new BundleEntryComponent();
           final BundleEntryRequestComponent request = new BundleEntryRequestComponent();
-          request.setMethod(HTTPVerb.POST);
-          request.setUrl("EpisodeOfCare");
-          request.setIfNoneExist("identifier=" + getEpisodeOfCareAstraiaIdentifier(episodeOfCare));
+          request.setMethod(HTTPVerb.PUT);
+          request.setUrl("EpisodeOfCare/" + episodeOfCare.getId());
 
           entryComponent.setResource(episodeOfCare);
           entryComponent.setRequest(request);
