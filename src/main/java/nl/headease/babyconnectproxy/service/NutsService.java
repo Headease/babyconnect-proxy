@@ -1,5 +1,9 @@
 package nl.headease.babyconnectproxy.service;
 
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -13,6 +17,7 @@ import nl.nuts.client.vcr.model.IssueVCRequest;
 import nl.nuts.client.vcr.model.LegalBase;
 import nl.nuts.client.vcr.model.LegalBase.ConsentTypeEnum;
 import nl.nuts.client.vcr.model.LegalBaseEvidence;
+import nl.nuts.client.vcr.model.ResolutionResult;
 import nl.nuts.client.vcr.model.Resource;
 import nl.nuts.client.vcr.model.VerifiableCredential;
 import org.apache.commons.lang3.StringUtils;
@@ -30,6 +35,7 @@ import org.springframework.stereotype.Service;
 public class NutsService {
   private static final Logger LOG = LoggerFactory.getLogger(NutsService.class);
 
+  private final DateTimeFormatter rfc3337Formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssxxx");
   private final List<String> resourceOperations = Collections.singletonList("read"); //can never change in the current Bolt spec
 
   private final AuthApi authApi;
@@ -50,13 +56,17 @@ public class NutsService {
 
   public TokenIntrospectionResponse introspectBearerToken(HttpServletRequest request) {
 
-    final String authentication = request.getHeader("Authentication");
+    final String authentication = request.getHeader("Authorization");
 
     if(!StringUtils.startsWith(authentication, "Bearer ")) {
       throw new IllegalArgumentException("No Bearer Token found");
     }
 
     return authApi.introspectAccessToken(StringUtils.substringAfter(authentication, "Bearer "));
+  }
+
+  public ResolutionResult getAuthorization(String did) {
+    return credentialApi.resolve(did, null);
   }
 
 
@@ -70,6 +80,11 @@ public class NutsService {
     vcRequest.setCredentialSubject(getCredentialSubject(createRequest));
     vcRequest.setIssuer(careOrganisationDid);
     vcRequest.setType("NutsAuthorizationCredential");
+
+    //TODO: 2 days is too long, only for hackathon!
+    final ZonedDateTime expirationDate = ZonedDateTime.now(ZoneOffset.UTC).truncatedTo(ChronoUnit.SECONDS)
+        .plus(2, ChronoUnit.DAYS);
+    vcRequest.setExpirationDate(expirationDate.format(rfc3337Formatter));
 
     final VerifiableCredential result = credentialApi.create(vcRequest);
 
