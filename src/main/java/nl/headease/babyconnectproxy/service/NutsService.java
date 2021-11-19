@@ -14,11 +14,13 @@ import nl.nuts.client.auth.model.TokenIntrospectionResponse;
 import nl.nuts.client.vcr.api.CredentialApi;
 import nl.nuts.client.vcr.model.CredentialSubject;
 import nl.nuts.client.vcr.model.IssueVCRequest;
+import nl.nuts.client.vcr.model.KeyValuePair;
 import nl.nuts.client.vcr.model.LegalBase;
 import nl.nuts.client.vcr.model.LegalBase.ConsentTypeEnum;
 import nl.nuts.client.vcr.model.LegalBaseEvidence;
 import nl.nuts.client.vcr.model.ResolutionResult;
 import nl.nuts.client.vcr.model.Resource;
+import nl.nuts.client.vcr.model.SearchRequest;
 import nl.nuts.client.vcr.model.VerifiableCredential;
 import org.apache.commons.lang3.StringUtils;
 import org.hl7.fhir.dstu3.model.EpisodeOfCare;
@@ -91,6 +93,12 @@ public class NutsService {
     LOG.info("Successfully created VC request: \n" + result);
 
     return result;
+  }
+
+  public List<String> getTrustedOrganizations() {
+
+    return credentialApi.listTrusted(
+        "NutsOrganizationCredential");
   }
 
   private CredentialSubject getCredentialSubject(CreateVerifiableCredentialRequest createRequest) {
