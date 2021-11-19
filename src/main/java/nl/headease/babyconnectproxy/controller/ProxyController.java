@@ -112,7 +112,7 @@ public class ProxyController {
    * @return
    * @throws URISyntaxException
    */
-  @RequestMapping("fhir/**")
+  @RequestMapping("old/fhir/**")
   public ResponseEntity<String> proxyFhirRequest(@RequestBody Optional<String> body,
       HttpMethod method, HttpServletRequest request) throws URISyntaxException {
 
@@ -147,17 +147,17 @@ public class ProxyController {
    * @return
    * @throws URISyntaxException
    */
-  @RequestMapping(value = "new/fhir/**", produces = MediaType.APPLICATION_JSON_VALUE)
+  @RequestMapping(value = "fhir/**", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<String> proxyFhirRequestNew(@RequestBody Optional<String> body,
       HttpMethod method, HttpServletRequest request)
       throws URISyntaxException {
 
-//    final CredentialSubject credentialSubject = introspectAndAuthenticate(request);
+    final CredentialSubject credentialSubject = introspectAndAuthenticate(request);
 
-//    final List<Resource> allowedResources = credentialSubject.getResources();
-//    final String requestingUserBsn = credentialSubject.getSubject()
-//        .replace("urn:oid:2.16.840.1.113883.2.4.6.3:", "");
-    final String requestingUserBsn = "615717341";
+    final List<Resource> allowedResources = credentialSubject.getResources();
+    final String requestingUserBsn = credentialSubject.getSubject()
+        .replace("urn:oid:2.16.840.1.113883.2.4.6.3:", "");
+//    final String requestingUserBsn = "615717341";
 
     //PROXY REQUEST
     final String path = StringUtils.substringAfterLast(request.getRequestURI(), "new");
