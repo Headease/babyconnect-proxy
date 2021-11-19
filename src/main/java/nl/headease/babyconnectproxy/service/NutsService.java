@@ -11,16 +11,16 @@ import javax.servlet.http.HttpServletRequest;
 import nl.headease.babyconnectproxy.model.CreateVerifiableCredentialRequest;
 import nl.nuts.client.auth.api.AuthApi;
 import nl.nuts.client.auth.model.TokenIntrospectionResponse;
+import nl.nuts.client.did.api.SearchApi;
+import nl.nuts.client.did.model.OrganizationSearchResult;
 import nl.nuts.client.vcr.api.CredentialApi;
 import nl.nuts.client.vcr.model.CredentialSubject;
 import nl.nuts.client.vcr.model.IssueVCRequest;
-import nl.nuts.client.vcr.model.KeyValuePair;
 import nl.nuts.client.vcr.model.LegalBase;
 import nl.nuts.client.vcr.model.LegalBase.ConsentTypeEnum;
 import nl.nuts.client.vcr.model.LegalBaseEvidence;
 import nl.nuts.client.vcr.model.ResolutionResult;
 import nl.nuts.client.vcr.model.Resource;
-import nl.nuts.client.vcr.model.SearchRequest;
 import nl.nuts.client.vcr.model.VerifiableCredential;
 import org.apache.commons.lang3.StringUtils;
 import org.hl7.fhir.dstu3.model.EpisodeOfCare;
@@ -42,16 +42,19 @@ public class NutsService {
 
   private final AuthApi authApi;
   private final CredentialApi credentialApi;
+  private final SearchApi didSearchApi;
   private final FhirService fhirService;
+
 
   private final String careOrganisationDid;
 
   public NutsService(AuthApi authApi,
       CredentialApi credentialApi,
-      FhirService fhirService,
+      SearchApi didSearchApi, FhirService fhirService,
       @Value("${nuts.node.did.careOrganisation}") String careOrganisationDid) {
     this.authApi = authApi;
     this.credentialApi = credentialApi;
+    this.didSearchApi = didSearchApi;
     this.fhirService = fhirService;
     this.careOrganisationDid = careOrganisationDid;
   }
@@ -95,10 +98,8 @@ public class NutsService {
     return result;
   }
 
-  public List<String> getTrustedOrganizations() {
-
-    return credentialApi.listTrusted(
-        "NutsOrganizationCredential");
+  public List<OrganizationSearchResult> searchOrganizations() {
+    return didSearchApi.searchOrganizations("", null);
   }
 
   private CredentialSubject getCredentialSubject(CreateVerifiableCredentialRequest createRequest) {

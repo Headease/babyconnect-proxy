@@ -147,7 +147,7 @@ public class ProxyController {
    * @return
    * @throws URISyntaxException
    */
-  @RequestMapping(value = "fhir/**", produces = MediaType.APPLICATION_JSON_VALUE)
+  @RequestMapping(value = "fhir/**")
   public ResponseEntity<String> proxyFhirRequestNew(@RequestBody Optional<String> body,
       HttpMethod method, HttpServletRequest request)
       throws URISyntaxException {
@@ -160,7 +160,7 @@ public class ProxyController {
 //    final String requestingUserBsn = "615717341";
 
     //PROXY REQUEST
-    final String path = StringUtils.substringAfterLast(request.getRequestURI(), "new");
+    final String path = StringUtils.substringAfterLast(request.getRequestURI(), "proxy");
     final List<NameValuePair> params = URLEncodedUtils.parse(request.getQueryString(),
         StandardCharsets.UTF_8);
 
@@ -199,9 +199,11 @@ public class ProxyController {
       }
     }
 
-    final String queryString = params.stream()
-        .map(param -> String.format("%s=%s", param.getName(), param.getValue()))
+    String queryString = params.stream()
+        .map(param -> String.format("%s=%s&", param.getName(), param.getValue()))
         .collect(Collectors.joining());
+
+    queryString = StringUtils.removeEnd(queryString, "&");
 
     URI uri = new URI(fhirStoreConfiguration.getProtocol(), null,
         fhirStoreConfiguration.getHosname(), fhirStoreConfiguration.getPort(), path, queryString,
